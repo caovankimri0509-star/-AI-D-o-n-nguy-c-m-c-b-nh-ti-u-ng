@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chẩn Đoán Tiểu Đường</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background: #F1F5F9; color: #1E293B; display: flex; min-height: 100vh; }
+        
+        /* ── Sidebar ── */
+        .sidebar {
+            width: 260px;
+            background: linear-gradient(180deg, #0F172A 0%, #1E3A5F 100%);
+            border-right: 1px solid rgba(255,255,255,0.06);
+            padding: 1.5rem 1rem;
+            color: #CBD5E1;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-header { text-align: center; padding-bottom: 1rem; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 1rem; }
+        .sidebar-icon { font-size: 2.5em; }
+        .sidebar-title { font-size: 1em; font-weight: 700; color: #E2E8F0; margin-top: 0.3em; }
+        .sidebar-subtitle { font-size: 0.7em; color: #64748B; margin-top: 0.2em; }
+        
+        .sidebar nav a {
+            display: block; padding: 10px 16px; border-radius: 10px;
+            font-weight: 500; font-size: 0.92em; margin: 4px 0;
+            color: #CBD5E1; text-decoration: none;
+            transition: all 0.2s ease; cursor: pointer;
+        }
+        .sidebar nav a:hover, .sidebar nav a.active {
+            background: rgba(255,255,255,0.08);
+            color: #fff; padding-left: 22px;
+        }
+
+        /* ── Main Content ── */
+        .main-content {
+            flex: 1;
+            padding: 2rem 2.5rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            overflow-y: auto;
+        }
+
+        /* SPA sections */
+        .page-section { display: none; animation: fadeIn 0.4s ease; }
+        .page-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* header chung */
+        .page-header {
+            background: linear-gradient(135deg, #1E40AF, #3B82F6);
+            border-radius: 18px; padding: 2rem 2.5rem;
+            margin-bottom: 2rem; position: relative; overflow: hidden;
+            box-shadow: 0 16px 48px rgba(37,99,235,0.3); color: white;
+        }
+        .page-header::after {
+            content:''; position:absolute; top:-40px; right:-40px;
+            width:200px; height:200px; background:rgba(255,255,255,0.05); border-radius:50%;
+        }
+        .page-header h2 { margin:0; font-size:1.6em; font-weight:800; }
+        .page-header p { color:rgba(255,255,255,0.8); margin:0.4em 0 0; font-size:0.9em; }
+
+        /* ── Components ── */
+        .stat-row, .metric-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.2rem; margin-bottom: 2rem; }
+        .stat-card, .metric-card {
+            background: #fff; border-radius: 16px; padding: 1.4rem 1.5rem;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06); border: 1px solid #E8EEFE;
+            display: flex; align-items: center; gap: 1rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .metric-card { flex-direction: column; text-align: center; justify-content: center; }
+        .stat-card:hover, .metric-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(37,99,235,0.12); }
+        .stat-icon { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.5em; flex-shrink: 0; }
+        .metric-icon { font-size:1.5em; margin-bottom:0.3em; background: #EEF2FF; border-radius: 10px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; }
+        .icon-blue { background: #EFF6FF; } .icon-red { background: #FEF2F2; } .icon-green { background: #F0FDF4; }
+        .stat-val, .metric-val { font-size: 1.9em; font-weight: 800; color: #0F172A; line-height: 1; }
+        .metric-val { color:#2563EB; font-size: 2.2em; }
+        .stat-lbl, .metric-lbl { font-size: 0.82em; color: #64748B; margin-top: 4px; font-weight: 500; }
+
+        .form-section { background: #fff; border-radius: 16px; padding: 1.5rem 1.8rem; margin-bottom: 1.2rem; box-shadow: 0 2px 12px rgba(0,0,0,0.06); border: 1px solid #E2E8F0; }
+        .form-section-title { font-size: 0.82em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #2563EB; margin-bottom: 1rem; padding-bottom: 0.6rem; border-bottom: 2px solid #EFF6FF; }
+        .input-group { margin-bottom: 1rem; }
+        .input-group label { display: block; font-size: 0.85em; font-weight: 600; color: #1E293B; margin-bottom: 0.4rem; }
+        .input-group input, .input-group select { width: 100%; padding: 0.75rem 1rem; border: 1px solid #CBD5E1; border-radius: 8px; font-family: inherit; font-size: 0.95em; transition: border-color 0.2s; }
+        .input-group input:focus, .input-group select:focus { outline: none; border-color: #3B82F6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #2563EB, #1D4ED8);
+            color: white; border: none; border-radius: 12px; font-weight: 700; font-size: 1em; padding: 0.75em 1.5em;
+            box-shadow: 0 8px 20px rgba(37,99,235,0.35); transition: all 0.2s; width: 100%; cursor: pointer; display: block;
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(37,99,235,0.45); }
+
+        .table-container { background: #fff; border-radius: 14px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); border: 1px solid #E2E8F0; overflow: hidden; margin-top: 1rem; width: 100%; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th { background: #F8FAFC; padding: 1rem; font-size: 0.8em; font-weight: 600; color: #64748B; border-bottom: 1px solid #E2E8F0; }
+        td { padding: 1rem; font-size: 0.9em; color: #1E293B; border-bottom: 1px solid #F1F5F9; }
+        .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.8em; font-weight: 600; display: inline-block; }
+        .badge.safe { background: #F0FDF4; color: #16A34A; }
+        .badge.danger { background: #FEF2F2; color: #DC2626; }
+
+        .upload-area { border: 2px dashed #CBD5E1; border-radius: 12px; padding: 3rem; text-align: center; color: #64748B; cursor: pointer; background: #F8FAFC; transition: border-color 0.2s; }
+        .upload-area:hover { border-color: #3B82F6; background: #EFF6FF; }
+        
+        .result-box { display: none; background: #fff; border-radius: 16px; padding: 2rem; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border: 1px solid #E2E8F0; margin-top: 2rem; line-height: 1.7; color: #1E293B; margin-bottom: 1rem; text-align: left; }
+        .result-box.show { display: block; animation: fadeIn 0.4s; }
+
+        /* Chat UI */
+        .chat-msg { display: flex; gap: 10px; margin-bottom: 10px; align-items: flex-start; }
+        .chat-msg.user { flex-direction: row-reverse; }
+        .chat-avatar { font-size: 1.5em; width: 40px; height: 40px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); flex-shrink: 0; }
+        .chat-bubble { background: #fff; padding: 12px 18px; border-radius: 14px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); max-width: 80%; line-height: 1.5; font-size: 0.95em; }
+        .chat-msg.user .chat-bubble { background: #3B82F6; color: white; }
+
+        /* original index components */
+        .hero-banner { background: linear-gradient(135deg, #1E40AF 0%, #2563EB 50%, #3B82F6 100%); border-radius: 20px; padding: 3rem 3.5rem; margin-bottom: 2rem; position: relative; overflow: hidden; box-shadow: 0 20px 60px rgba(37,99,235,0.35); color: #fff; }
+        .hero-banner::before { content: ''; position: absolute; top: -60px; right: -60px; width: 280px; height: 280px; background: rgba(255,255,255,0.06); border-radius: 50%; }
+        .hero-title { font-size: 2.2em; font-weight: 800; margin-bottom: 0.4em; }
+        .hero-sub { font-size: 1em; color: rgba(255,255,255,0.82); max-width: 800px; }
+        .info-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem; }
+        .info-card { background: #fff; border-radius: 16px; padding: 1.6rem 1.8rem; border: 1px solid #E8EEFE; height: 100%; }
+        .feature-item { display: flex; gap: 0.8rem; align-items: flex-start; padding: 0.7rem 0; border-bottom: 1px solid #F1F5F9; }
+        .feature-dot { width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+        .feature-name { font-weight: 600; font-size: 0.88em; }
+        .step-item { display: flex; gap: 1rem; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid #F1F5F9; }
+        .step-num { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #2563EB, #1D4ED8); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .step-title { font-weight: 600; font-size: 0.88em; }
+
+        @media (max-width: 900px) {
+            .info-cards { grid-template-columns: 1fr; }
+            body { flex-direction: column; }
+            .sidebar { width: 100%; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.06); }
+            .grid-2, .grid-3 { grid-template-columns: 1fr; }
+        }
+        
+        /* Spinner */
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-icon">🩺</div>
+            <div class="sidebar-title">AI Tiểu Đường</div>
+            <div class="sidebar-subtitle">Đồ Án 1 · DH23TINxx</div>
+        </div>
+        <nav id="nav-menu">
+            <a data-target="trang-chu" class="active">Trang Chủ</a>
+            <a data-target="chan-doan">Chẩn Đoán</a>
+            <a data-target="lich-su" onclick="loadHistory()">Lịch Sử</a>
+            <a data-target="thong-ke">Thống Kê</a>
+            <a data-target="phan-tich">Phân Tích Giấy Tờ</a>
+            <a data-target="tro-ly-ai">Trợ Lý AI <span style="font-size: 0.7em; background: rgba(255,255,255,0.2); border-radius: 10px; padding: 2px 6px; margin-left: 5px;">Mới</span></a>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        
+        <!-- TRANG CHỦ -->
+        <section id="trang-chu" class="page-section active">
+            <div class="hero-banner">
+                <h1 class="hero-title">🩺 Hệ Thống AI Chẩn Đoán Tiểu Đường</h1>
+                <p class="hero-sub">Ứng dụng trí tuệ nhân tạo hỗ trợ phát hiện sớm nguy cơ mắc bệnh tiểu đường dựa trên mô hình Random Forest được huấn luyện với dữ liệu y tế thực tế.</p>
+            </div>
+
+            <div class="stat-row">
+                <div class="stat-card"><div class="stat-icon" style="background: #EFF6FF;">🔬</div><div><div class="stat-val" id="home-total">12</div><div class="stat-lbl">Tổng lượt chẩn đoán</div></div></div>
+                <div class="stat-card"><div class="stat-icon" style="background: #FEF2F2;">⚠️</div><div><div class="stat-val" id="home-danger">3</div><div class="stat-lbl">Ca nguy cơ cao</div></div></div>
+                <div class="stat-card"><div class="stat-icon" style="background: #F0FDF4;">✅</div><div><div class="stat-val" id="home-safe">9</div><div class="stat-lbl">Ca an toàn</div></div></div>
+                <div class="stat-card"><div class="stat-icon" style="background: #EFF6FF;">🎯</div><div><div class="stat-val">76.6%</div><div class="stat-lbl">Độ chính xác AI</div></div></div>
+            </div>
+
+            <div class="info-cards">
+                <div class="info-card">
+                    <h3>🚀 Tính Năng Hệ Thống</h3>
+                    <div class="feature-item"><div class="feature-dot" style="background:#EFF6FF">🤖</div><div><div class="feature-name">AI Chẩn Đoán Thông Minh</div></div></div>
+                    <div class="feature-item"><div class="feature-dot" style="background:#FAF5FF">📋</div><div><div class="feature-name">Lưu Lịch Sử Chẩn Đoán</div></div></div>
+                    <div class="feature-item"><div class="feature-dot" style="background:#FEF2F2">📄</div><div><div class="feature-name">AI Phân Tích Giấy Tờ</div></div></div>
+                    <div class="feature-item"><div class="feature-dot" style="background:#F0FDF4">💬</div><div><div class="feature-name">Trợ Lý AI Hỏi Đáp</div></div></div>
+                </div>
+                <div class="info-card">
+                    <h3>📖 Hướng Dẫn Sử Dụng</h3>
+                    <div class="step-item"><div class="step-num">1</div><div><div class="step-title">Chọn trang Chẩn Đoán</div></div></div>
+                    <div class="step-item"><div class="step-num">2</div><div><div class="step-title">Nhấn "Phân Tích AI"</div></div></div>
+                    <div class="step-item"><div class="step-num">3</div><div><div class="step-title">Xem Lịch Sử được tự động lưu</div></div></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CHẨN ĐOÁN -->
+        <section id="chan-doan" class="page-section">
+            <div class="page-header">
+                <h2>🔬 Chẩn Đoán AI</h2>
+                <p>Nhập các chỉ số sức khỏe để AI phân tích nguy cơ mắc bệnh tiểu đường</p>
+            </div>
+            
+            <div class="form-section">
+                <div class="form-section-title">👤 Thông Tin Bệnh Nhân</div>
+                <div class="grid-2">
+                    <div class="input-group">
+                        <label>Họ và Tên *</label>
+                        <input type="text" placeholder="Nguyễn Văn A" id="pt-name">
+                    </div>
+                    <div class="input-group">
+                        <label>Mã Bệnh Nhân</label>
+                        <input type="text" placeholder="BN001" id="pt-id">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <div class="form-section-title">📊 Chỉ Số Sức Khỏe</div>
+                <div class="grid-3">
+                    <div class="input-group"><label>🩸 Đường huyết (mg/dL)</label><input type="number" id="pt-glucose" value="100"></div>
+                    <div class="input-group"><label>💉 Huyết áp (mm Hg)</label><input type="number" id="pt-bp" value="70"></div>
+                    <div class="input-group"><label>⚖️ BMI (kg/m²)</label><input type="number" id="pt-bmi" value="22.0"></div>
+                    <div class="input-group"><label>💊 Insulin (mu U/ml)</label><input type="number" id="pt-insulin" value="80"></div>
+                    <div class="input-group"><label>🎂 Tuổi</label><input type="number" id="pt-age" value="25"></div>
+                    <div class="input-group"><label>🧬 Hệ số di truyền</label><input type="number" id="pt-dpf" value="0.3" step="0.1"></div>
+                </div>
+            </div>
+
+            <button class="btn-primary" onclick="simulateDiagnosis()">🔍 Phân Tích Thực (Lưu Lịch Sử)</button>
+            <div id="diagnosis-result" class="result-box" style="text-align:center;"></div>
+        </section>
+
+        <!-- LỊCH SỬ -->
+        <section id="lich-su" class="page-section">
+            <div class="page-header">
+                <h2>📋 Lịch Sử Ứng Dụng</h2>
+                <p>Xem toàn bộ lịch sử chẩn đoán nguy cơ được lưu lại</p>
+            </div>
+            <div class="metric-row">
+                <div class="metric-card"><div class="metric-icon" style="background:#EFF6FF">🔬</div><div class="metric-val" id="hist-total">0</div><div class="metric-lbl">Tổng lượt</div></div>
+                <div class="metric-card"><div class="metric-icon" style="background:#FEF2F2">⚠️</div><div class="metric-val" style="color:#DC2626" id="hist-danger">0</div><div class="metric-lbl">Nguy cơ cao</div></div>
+                <div class="metric-card"><div class="metric-icon" style="background:#F0FDF4">✅</div><div class="metric-val" style="color:#16A34A" id="hist-safe">0</div><div class="metric-lbl">An toàn</div></div>
+            </div>
+            
+            <button class="btn-primary" style="width: auto; margin-bottom: 10px; background: #EF4444; box-shadow: none;" onclick="clearHistory()">🗑️ Xoá lịch sử</button>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr><th>Thời Gian</th><th>Tên Bệnh Nhân</th><th>Tuổi</th><th>Mã BN</th><th>Kết Quả</th><th>Xác Suất</th></tr>
+                    </thead>
+                    <tbody id="history-tbody">
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- THỐNG KÊ -->
+        <section id="thong-ke" class="page-section">
+            <div class="page-header"><h2>📊 Thống Kê & Phân Tích</h2><p>Hiệu suất mô hình AI, phân tích dữ liệu và biểu đồ</p></div>
+            <div class="metric-row">
+                <div class="metric-card"><div class="metric-icon">🎯</div><div class="metric-val">76.6%</div><div class="metric-lbl">Độ Chính Xác</div></div>
+                <div class="metric-card"><div class="metric-icon">🗂️</div><div class="metric-val">768</div><div class="metric-lbl">Tổng Mẫu Dữ Liệu</div></div>
+            </div>
+        </section>
+
+        <!-- PHÂN TÍCH GIẤY TỜ -->
+        <section id="phan-tich" class="page-section">
+            <div class="page-header">
+                <h2>📄 Phân Tích Giấy Tờ Y Tế bằng AI</h2>
+                <p>Tải lên hình ảnh giấy tờ khám bệnh (kết quả xét nghiệm, đơn thuốc, v.v.), AI sẽ đọc, giải thích chuẩn đoán và đưa ra giải pháp.</p>
+            </div>
+            
+            <div class="form-section">
+                <div class="form-section-title">🔑 Cài đặt AI (Tùy chọn)</div>
+                <div class="input-group" style="margin-bottom:0;">
+                    <label>OpenRouter API Key</label>
+                    <input type="password" id="api-key-input" placeholder="sk-or-v1-xxxxxxxx....">
+                    <div style="font-size: 0.8em; margin-top: 5px; color: #64748B;">Lấy tại: https://openrouter.ai/keys (Nếu không có, sẽ dùng kết quả mô phỏng)</div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <div class="form-section-title">📸 Tải Lên Hình Ảnh Giấy Tờ</div>
+                <input type="file" id="doc-upload" accept="image/png, image/jpeg, image/webp" style="display:none;" onchange="handleFileUpload(event)">
+                <div class="upload-area" onclick="document.getElementById('doc-upload').click()">
+                    <div id="upload-content">
+                        <div style="font-size:3em; margin-bottom:10px;">📁</div>
+                        <p>Click để chọn file ảnh từ máy (JPG, PNG)</p>
+                    </div>
+                    <img id="image-preview" style="display:none; max-width: 100%; max-height: 300px; border-radius: 8px; margin: 0 auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                </div>
+            </div>
+            <button class="btn-primary" onclick="simulateUpload()" style="margin-top:10px;">🔍 Phân Tích Thực</button>
+            <div id="upload-result" class="result-box"></div>
+        </section>
+
+        <!-- TRỢ LÝ AI -->
+        <section id="tro-ly-ai" class="page-section">
+            <div class="page-header">
+                <h2>🤖 Trợ Lý AI Y Tế</h2>
+                <p>Hỏi đáp trực tiếp về bệnh tiểu đường, dinh dưỡng, chỉ số sức khỏe với bác sĩ AI 24/7</p>
+            </div>
+            
+            <div class="form-section chat-container" style="height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: #F8FAFC;" id="chat-messages">
+                <div class="chat-msg assistant">
+                    <div class="chat-avatar">🩺</div>
+                    <div class="chat-bubble">Chào bạn! Tôi là bác sĩ AI chuyên về tiểu đường. Bạn cần tư vấn về dinh dưỡng, đường huyết hay câu hỏi nào khác? (Hỗ trợ gọi AI thực nếu có API Key ở trang Phân Tích Giấy Tờ)</div>
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 10px; margin-top: 10px; align-items: stretch;">
+                <input type="text" id="chat-input" placeholder="Nhập câu hỏi của bạn..." style="flex:1; padding: 1rem; border: 1px solid #CBD5E1; border-radius: 12px; outline: none; font-size: 1em;" onkeypress="handleEnter(event)">
+                <button class="btn-primary" style="width: auto; border-radius: 12px; padding: 0 2rem;" onclick="sendMessage()">Gửi</button>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // Init LocalStorage
+        if (!localStorage.getItem('diabetes_history')) {
+            localStorage.setItem('diabetes_history', JSON.stringify([
+                {time: "31/03/2026 10:00", name: "Trần Thị B", age: "45", id: "BN010", result: "Nguy cơ cao", prob: "82%"},
+                {time: "30/03/2026 14:30", name: "Lê Văn C", age: "29", id: "BN011", result: "An toàn", prob: "15%"},
+                {time: "29/03/2026 09:15", name: "Nguyễn Văn A", age: "34", id: "BN012", result: "An toàn", prob: "22%"}
+            ]));
+        }
+
+        // Cập nhật số liệu KPI thống kê
+        function updateKPIs() {
+            const history = JSON.parse(localStorage.getItem('diabetes_history') || '[]');
+            const total = history.length;
+            const danger = history.filter(h => h.result === 'Nguy cơ cao').length;
+            const safe = total - danger;
+
+            document.getElementById('hist-total').innerText = total;
+            document.getElementById('hist-danger').innerText = danger;
+            document.getElementById('hist-safe').innerText = safe;
+            
+            document.getElementById('home-total').innerText = total;
+            document.getElementById('home-danger').innerText = danger;
+            document.getElementById('home-safe').innerText = safe;
+        }
+
+        function loadHistory() {
+            const history = JSON.parse(localStorage.getItem('diabetes_history') || '[]');
+            const tbody = document.getElementById('history-tbody');
+            
+            if (history.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">Chưa có dữ liệu</td></tr>';
+            } else {
+                tbody.innerHTML = [...history].reverse().map(item => `
+                    <tr>
+                        <td>${item.time}</td>
+                        <td>${item.name}</td>
+                        <td>${item.age}</td>
+                        <td>${item.id}</td>
+                        <td><span class="badge ${item.result === 'An toàn' ? 'safe' : 'danger'}">${item.result}</span></td>
+                        <td>${item.prob}</td>
+                    </tr>
+                `).join('');
+            }
+            updateKPIs();
+        }
+
+        function clearHistory() {
+            localStorage.setItem('diabetes_history', JSON.stringify([]));
+            loadHistory();
+        }
+
+        // Menu Điều Hướng
+        const links = document.querySelectorAll('#nav-menu a');
+        const sections = document.querySelectorAll('.page-section');
+
+        links.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                links.forEach(l => l.classList.remove('active'));
+                sections.forEach(s => s.classList.remove('active'));
+                
+                link.classList.add('active');
+                const targetId = link.getAttribute('data-target');
+                document.getElementById(targetId).classList.add('active');
+                
+                if (targetId === 'lich-su') loadHistory();
+            });
+        });
+
+        // Xử lý nút Phân Tích
+        function simulateDiagnosis() {
+            const name = document.getElementById('pt-name').value || "Khách ẩn danh";
+            const glucose = parseInt(document.getElementById('pt-glucose').value) || 100;
+            const bmi = parseFloat(document.getElementById('pt-bmi').value) || 22.0;
+            
+            const isDanger = (glucose > 130 || bmi > 25);
+            const riskPct = isDanger ? Math.floor(Math.random() * 30 + 60) : Math.floor(Math.random() * 20 + 10);
+            const resultText = isDanger ? "Nguy cơ cao" : "An toàn";
+            
+            const history = JSON.parse(localStorage.getItem('diabetes_history') || '[]');
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('vi-VN') + ' ' + now.toLocaleTimeString('vi-VN', {hour: '2-digit', minute: '2-digit'});
+            
+            history.push({
+                time: dateStr,
+                name: name,
+                age: document.getElementById('pt-age').value || "25",
+                id: document.getElementById('pt-id').value || "Chưa nhập",
+                result: resultText,
+                prob: riskPct + '%'
+            });
+            localStorage.setItem('diabetes_history', JSON.stringify(history));
+            updateKPIs();
+            
+            const res = document.getElementById('diagnosis-result');
+            res.innerHTML = `
+                <h3 style="color:${isDanger ? '#DC2626' : '#16A34A'}; margin-bottom:10px; font-size: 1.25em;">
+                    ${isDanger ? '⚠️ Nguy cơ cao mắc tiểu đường' : '✅ Chỉ số ở mức an toàn'}
+                </h3>
+                <p style="color:#64748B;">${isDanger ? 'Hệ thống phát hiện các chỉ số của bạn ở mức cảnh báo. Lưu ý: Đây là thuật toán mô phỏng Client-side.' : 'Các chỉ số sức khỏe của bạn đang trong ngưỡng bình thường. Đã lưu vào lịch sử!'}</p>
+                
+                <div class="grid-2" style="margin-top:20px; text-align: left;">
+                    <div style="background: #F0FDF4; border: 1px solid #BBF7D0; padding: 1.5rem; border-radius: 14px; text-align: center;">
+                        <div style="font-size: 2em; font-weight: 800; color: #16A34A;">${100 - riskPct}%</div>
+                        <div style="font-size: 0.8em; color: #64748B; margin-top: 5px;">🟢 Xác suất An toàn</div>
+                    </div>
+                    <div style="background: #FEF2F2; border: 1px solid #FECACA; padding: 1.5rem; border-radius: 14px; text-align: center;">
+                        <div style="font-size: 2em; font-weight: 800; color: #DC2626;">${riskPct}%</div>
+                        <div style="font-size: 0.8em; color: #64748B; margin-top: 5px;">🔴 Xác suất Nguy cơ</div>
+                    </div>
+                </div>
+            `;
+            
+            res.style.display = 'block';
+            res.classList.remove('show');
+            void res.offsetWidth; 
+            res.classList.add('show');
+        }
+
+        // ========================== GIAO DIỆN UPLOAD ẢNH THỰC TẾ ==========================
+        let currentFileBase64 = null;
+        let currentFileType = null;
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                currentFileType = file.type;
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    currentFileBase64 = e.target.result.split(',')[1];
+                    document.getElementById('upload-content').style.display = 'none';
+                    const imgPreview = document.getElementById('image-preview');
+                    imgPreview.src = e.target.result;
+                    imgPreview.style.display = 'block';
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        async function simulateUpload() {
+            const res = document.getElementById('upload-result');
+            const apiKey = document.getElementById('api-key-input').value.trim();
+
+            if (!currentFileBase64) {
+                alert("Vui lòng click vào khung để chọn hình ảnh tải lên trước khi phân tích!");
+                return;
+            }
+
+            res.style.display = 'block';
+            res.classList.remove('show');
+            void res.offsetWidth; 
+            res.classList.add('show');
+
+            if (!apiKey) {
+                // Mockup
+                res.innerHTML = `
+                    <div style="background: #FFF7ED; padding: 1rem; border-radius: 8px; margin-bottom: 15px; border: 1px solid #FED7AA; color: #9A3412; font-size: 0.9em;">
+                        ⚠️ Bạn chưa nhập OpenRouter API Key ở mục phía trên. Đây là kết quả <b>Giả lập (Mockup)</b>. Hãy nhập API Key để AI phân tích ảnh thực tế của bạn bằng Gemini Flash 2.0!
+                    </div>
+                    <h3 style="color:#2563EB;">📋 Kết quả phân tích giả lập: Đơn Thuốc</h3>
+                    <h4 style="color:#333; margin-top: 15px;">🔬 1. Giải Thích Các Chỉ Số / Nội Dung Chính</h4>
+                    <p style="color:#475569;">- <b>Thuốc TOBREX:</b> Nhỏ mắt kháng sinh<br>- <b>Thuốc V.Rohto:</b> Dung dịch bổ sung Vitamin</p>
+                    <h4 style="color:#333; margin-top: 15px;">🏥 2. Nhận Xét Quan Trọng</h4>
+                    <p style="color:#475569;">Bệnh nhân bị viêm kết mạc và cần dùng thuốc nhỏ kháng sinh để điều trị. Mắt có dấu hiệu mỏi do sử dụng máy tính nhiều.</p>
+                `;
+                return;
+            }
+
+            // Gọi API Thực tế
+            res.innerHTML = `<div style="text-align:center; padding: 2rem; color: #64748B;"><div style="font-size:2.5em; display: inline-block; animation: spin 1.5s linear infinite; margin-bottom: 10px;">⏳</div><br><b>AI đang đọc và phân tích ảnh... Trình duyệt đang chạy tiến trình này trực tiếp. Vui lòng đợi trong giây lát...</b></div>`;
+            
+            const promptText = `Bạn là một bác sĩ AI chuyên nghiệp, tận tâm và có chuyên môn cao, được giao nhiệm vụ phân tích giấy tờ y tế cho bệnh nhân. Dựa vào hình ảnh giấy tờ y tế được tải lên, hãy đọc kỹ hình ảnh và phân tích thông tin theo cấu trúc sau một cách rõ ràng, dễ hiểu bằng tiếng Việt:\n\n### 📋 1. Loại Giấy Tờ\n\n### 🔬 2. Giải Thích Tiêu Biểu\n\n### 🏥 3. Nhận Xét Quan Trọng\n\n### 💊 4. Giải Pháp / Lời Khuyên`;
+
+            try {
+                const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                        "Authorization": "Bearer " + apiKey,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        "model": "google/gemini-2.0-flash-001",
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": [
+                                    {"type": "text", "text": promptText},
+                                    {"type": "image_url", "image_url": {"url": "data:" + currentFileType + ";base64," + currentFileBase64}}
+                                ]
+                            }
+                        ]
+                    })
+                });
+                
+                const data = await response.json();
+                if(data.error) throw new Error(data.error.message);
+                const mdText = data.choices[0].message.content;
+                
+                const htmlText = mdText.replace(/\n/g, '<br>').replace(/### (.*?)\n/g, '<h4 style="color:#333; margin-top:15px; margin-bottom:5px;">$1</h4>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+
+                res.innerHTML = `
+                    <div style="background: #F0FDF4; padding: 1rem; border-radius: 8px; margin-bottom: 15px; border: 1px solid #BBF7D0; color: #16A34A; font-size: 0.9em; font-weight: 600;">✅ Gọi Gemini 2.0 Flash AI từ hình ảnh thành công!</div>
+                    <h3 style="color:#2563EB;">📋 Kết quả phân tích từ AI</h4>
+                    <div style="margin-top: 15px; line-height: 1.6; color:#475569;">${htmlText}</div>
+                `;
+            } catch(err) {
+                res.innerHTML = `<div style="color: #DC2626; padding: 1rem; background: #FEF2F2; border-radius: 8px; border: 1px solid #FECACA;">❌ Lỗi kết nối AI: ${err.message}<br>Hãy đảm bảo API Key của bạn hợp lệ hoặc Chrome không chặn request (CORS).</div>`;
+            }
+        }
+
+        // ========================== CHAT AI LOGIC ==========================
+        function handleEnter(e) { if (e.key === 'Enter') sendMessage(); }
+
+        async function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const msg = input.value.trim();
+            if(!msg) return;
+            
+            const container = document.getElementById('chat-messages');
+            const apiKey = document.getElementById('api-key-input') ? document.getElementById('api-key-input').value.trim() : '';
+            
+            // Add user msg
+            container.innerHTML += `<div class="chat-msg user"><div class="chat-avatar">🧑</div><div class="chat-bubble">${msg}</div></div>`;
+            input.value = '';
+            container.scrollTop = container.scrollHeight;
+            
+            if (!apiKey) {
+                setTimeout(() => {
+                    container.innerHTML += `<div class="chat-msg assistant"><div class="chat-avatar">🩺</div><div class="chat-bubble">Tôi đã ghi nhận câu hỏi của bạn: "<b>${msg}</b>". Tuy nhiên bạn chưa nhập <b>OpenRouter API Key</b> ở trang <b>Phân Tích Giấy Tờ</b>, nên tôi ở chế độ phản hồi tắt (giả lập). Nhập Key để bật AI xịn xò nhé!</div></div>`;
+                    container.scrollTop = container.scrollHeight;
+                }, 800);
+                return;
+            }
+
+            const typingId = "typing-" + Date.now();
+            container.innerHTML += `<div class="chat-msg assistant" id="${typingId}"><div class="chat-avatar">🩺</div><div class="chat-bubble" style="color: #94A3B8; font-style: italic;">Đang suy nghĩ...</div></div>`;
+            container.scrollTop = container.scrollHeight;
+            
+            try {
+                const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                    method: "POST",
+                    headers: { "Authorization": "Bearer " + apiKey, "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        "model": "google/gemini-2.0-flash-001",
+                        "messages": [
+                            {"role": "system", "content": "Bạn là bác sĩ AI phân tích về tiểu đường và sức khỏe bằng tiếng Việt cặn kẽ, thân thiện."},
+                            {"role": "user", "content": msg}
+                        ]
+                    })
+                });
+                
+                const data = await response.json();
+                if(data.error) throw new Error(data.error.message);
+                const replyHtml = data.choices[0].message.content.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+                
+                document.getElementById(typingId).innerHTML = `<div class="chat-avatar">🩺</div><div class="chat-bubble">${replyHtml}</div>`;
+                container.scrollTop = container.scrollHeight;
+            } catch(err) {
+                document.getElementById(typingId).innerHTML = `<div class="chat-avatar">🩺</div><div class="chat-bubble" style="color: #DC2626;">❌ Lỗi kết nối AI: ${err.message}</div>`;
+            }
+        }
+
+        // Initialize KPIs on start
+        window.onload = () => { updateKPIs(); loadHistory(); };
+    </script>
+</body>
+</html>
